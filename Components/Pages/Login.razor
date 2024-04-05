@@ -1,0 +1,71 @@
+﻿@using Training_Partner.Components.Layout
+@using DBLibrary
+@using Models
+@using Microsoft.Extensions.Configuration
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@layout LoginLayout
+@page "/login"
+@rendermode InteractiveServer
+@inject ProtectedSessionStorage _sessionStore
+@inject NavigationManager _navManager
+@inject IMysqlAccess _sqlDB
+@inject IConfiguration _config
+
+<PageTitle>Login</PageTitle>
+<h3>Login</h3>
+
+@if (!isLoaded) {
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if (loginFailed)
+    {
+        <p>Login Failed, try again</p>
+    }
+
+    <EditForm Model="login" OnValidSubmit="HandleSubmit" FormName="LoginForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="mb-3">
+            <InputText id="username" placeholder="Username" @bind-Value="login!.username"></InputText>
+        </div>
+        <div class="mb-3">
+            <InputText type="password" id="password" placeholder="Password" @bind-Value="login!.password"></InputText>
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+    </EditForm>
+}
+
+@code{
+
+    private myLogin? login = new myLogin();
+
+    private bool isLoaded = false;
+    private bool loginFailed = false;
+
+
+    protected override void OnInitialized()
+    {
+        isLoaded = true;
+    }
+
+    private async Task HandleSubmit()
+    {
+        string sql = sql = $"select id from users where username = '{login!.username}' and password = MD5('{login!.password}');";
+        string? connStr = _config.GetConnectionString("default");
+        if (connStr is not null)
+        {
+            List<int> id = await _sqlDB.LoadData<int, dynamic>(sql, new { }, connStr);
+            if (id.Count == 1) 
+            {
+                int userID = id[0];
+                await _sessionStore.SetAsync("userid", userID); // save user ID to the session
+                _navManager.NavigateTo("/"); // go to home page
+            } else
+            {
+                loginFailed = true;
+            }
+        }
+    }
+}

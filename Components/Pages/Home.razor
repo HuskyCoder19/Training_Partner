@@ -1,0 +1,161 @@
+﻿@page "/"
+@using DBLibrary
+@using Models
+@using Microsoft.Extensions.Configuration
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@rendermode InteractiveServer
+@inject ProtectedSessionStorage _sessionStore
+@inject NavigationManager _navManager
+@inject IMysqlAccess _sqlDB
+@inject IConfiguration _config
+
+<PageTitle>Home</PageTitle>
+
+@if (user is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+
+    <h3>Hello @user.FirstName!</h3>
+    <br />
+
+    <div>
+        <label for="wType">Workout type:</label>
+        <InputSelect id="wType" @bind-Value="wTypeVal">
+            <option value="0">All</option>
+            <option value="1">Cardio</option>
+            <option value="2">Weight Lift</option>
+        </InputSelect>
+        <label for="type">Time Range:</label>
+        <InputSelect id="time" @bind-Value="timeVal">
+            <option value="1">Week</option>
+            <option value="2">Month</option>
+            <option value="3">Year</option>
+            <option value="4">All</option>
+        </InputSelect>
+        <button type="button" @onclick="QueryWorkouts">Update</button>
+    </div>
+
+    <br />
+    @if (workouts == null)
+    {
+        <p><em>Loading Workouts...</em></p>
+    }
+    else
+    {
+        <div>
+            <table class="table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Type</th>
+                        <th>Length (min)</th>
+                        <th>Calories Burnt</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var workout in workouts)
+                    {
+                        <tr>
+                            <td>@GetTypeName(workout.TypeID)</td>
+                            <td>@workout.Length</td>
+                            <td>@workout.CalsBurnt</td>
+                            <td>@workout.Date.ToShortDateString()</td>
+                            <td><button type="button" class="btn btn-primary" @onclick="(() => EditWorkout(workout.Id))">Edit</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+
+    // type and time values
+    private int wTypeVal { get; set; } = 0;
+    private int timeVal { get; set; } = 1;
+
+    private User? user;
+    List<Workout>? workouts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // TODO: get userID from session
+        // query for user info from userID
+        string sql = sql = $"select firstName, lastName, email, weight, age from users where id = 5;";
+        string? connStr = _config.GetConnectionString("default");
+        if (connStr is not null)
+        {
+            List<User> users = await _sqlDB.LoadData<User, dynamic>(sql, new { }, connStr);
+            if (users.Count == 1)
+            {
+                user = users[0]; // store user
+            } 
+        }
+
+        await QueryWorkouts();
+    }
+
+    private void EditWorkout(int id)
+    {
+        _navManager.NavigateTo($"/workout/{id}");
+    }
+
+    private string GetTypeName(int id)
+    {
+        // TODO: Link types to database
+        switch (id)
+        {
+            case 1:
+                return "Cardio";
+            case 2:
+                return "Weight Lift";
+            default:
+                return "Unknown";
+        }
+    }
+
+    private async Task QueryWorkouts()
+    {
+
+        string typeQuery = "";
+        if (wTypeVal > 0)
+        {
+            typeQuery = $"and typeID = {wTypeVal}";
+        }
+
+        string timeQuery = "";
+        // query for type & time range
+        switch (timeVal)
+        {
+            case 1:
+                // week
+                timeQuery = $"and date > now() - interval 7 day";
+                break;
+            case 2:
+                // month
+                timeQuery = $"and date > now() - interval 30 day";
+                break;
+            case 3:
+                //year
+                timeQuery = $"and date > now() - interval 365 day";
+                break;
+            default:
+                break;
+        }
+
+        string sql = sql = $"select id, length, calsBurnt, date, typeID from workouts where userID = 5 {typeQuery} {timeQuery} order by date desc;";
+        string? connStr = _config.GetConnectionString("default");
+        if (connStr is not null)
+        {
+            workouts = await _sqlDB.LoadData<Workout, dynamic>(sql, new { }, connStr);
+        }
+
+    }
+
+}
+

@@ -1,0 +1,175 @@
+﻿@page "/workout"
+@page "/workout/{id:int}"
+@using DBLibrary
+@using Models
+@using Microsoft.Extensions.Configuration
+@rendermode InteractiveServer
+@inject NavigationManager NavManager
+@inject IMysqlAccess _sqlDB
+@inject IConfiguration _config
+@inject IJSRuntime _jsRuntime
+
+<PageTitle>@title</PageTitle>
+<h3>@title</h3>
+
+@if (!isLoaded)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-sm-4">
+            <EditForm Model="workout" OnValidSubmit="HandleSubmit" FormName="AddWorkout">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="mb-3">
+                    <label for="type">Workout Type:</label>
+                    <InputSelect id="type" @bind-Value="workout!.TypeID" class="form-select">
+                        <option value="0">Select Type</option>
+                        <option value="1">Cardio</option>
+                        <option value="2">Weight Lift</option>
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label for="length">Workout Length:</label>
+                    <InputNumber id="length" @bind-Value="workout!.Length" class="form-control"></InputNumber>
+                </div>
+                <div class="mb-3">
+                    <label for="cals">Calories Burnt:</label>
+                    <InputNumber id="cals" @bind-Value="workout!.CalsBurnt" class="form-control"></InputNumber>
+                </div>
+                <div class="mb-3">
+                    <label for="date">Date:</label>
+                    <InputDate id="date" @bind-Value="workout!.Date" class="form-control"></InputDate>
+                </div>
+                @if (workout.TypeID == 1)
+                {
+                    <div class="mb-3">
+                        <label for="cardioType">Cardio Type:</label>
+                        <InputSelect id="cardioType" @bind-Value="cardioType" class="form-select">
+                            <option value="0">Select Type</option>
+                            <option value="1">Run</option>
+                            <option value="2">Bike</option>
+                            <option value="3">swim</option>
+                        </InputSelect>
+                    </div>
+                    <div class="mb-3">
+                        <label for="distance">Distance (miles):</label>
+                        <InputNumber id="distance" @bind-Value="distance" class="form-control"></InputNumber>
+                    </div>
+                }
+                <button type="submit" class="btn btn-primary">Save</button>
+                @if (Id is not null)
+                {
+                    <button type="button" class="btn btn-danger" style="margin-left: 10px;" @onclick="DeleteWorkout">Delete</button>
+                }
+                <button type="button" class="btn btn-secondary" style="margin-left: 10px;" @onclick="Cancel">Cancel</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+
+    [Parameter]
+    public int? Id { get; set; } // page parameter
+
+    private Workout? workout { get; set; } // workout object
+    private string? title { get; set; } // page title
+
+    // cardio values
+    private string? cardioType { get; set; }
+    private double distance { get; set; }
+
+
+    private bool isLoaded = false; // workout model loaded flag
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // check ID page parameter
+        if (Id is not null)
+        {
+
+
+            string sql = $"select length, calsBurnt, date, typeID from workouts where id = {Id};";
+            string? connStr = _config.GetConnectionString("default");
+            if (connStr is not null)
+            {
+                List<Workout>? wList = await _sqlDB.LoadData<Workout, dynamic>(sql, new { }, connStr);
+                if (wList.Count > 0)
+                {
+                    workout = wList[0];
+                }
+            }
+
+            title = "Edit Game";
+        }
+        else
+        {
+            // no ID parameter, construct new workout
+            workout ??= new Workout();
+            workout.Id = 0;
+            workout.TypeID = 0;
+            title = "New Game";
+        }
+        isLoaded = true;
+    }
+
+
+    private async Task HandleSubmit()
+    {
+        if (workout != null)
+        {
+            if (Id is null)
+            {
+                // TODO: change userID to session variable
+
+                // add to database
+                string sql = $"insert into workouts (length, calsBurnt, date, userID, typeID) values ({workout.Length}, {workout.CalsBurnt}, '{workout.Date.ToString("yyyy-MM-dd")}', {5}, {workout.TypeID});";
+                string? connStr = _config.GetConnectionString("default");
+                if (connStr is not null)
+                {
+                    await _sqlDB.StoreData(sql, new { }, connStr);
+                }
+            }
+            else
+            {
+                string sql = $"update workouts set length = {workout.Length}, calsBurnt = {workout.CalsBurnt}, date = '{workout.Date.ToString("yyyy-MM-dd")}', typeID = {workout.TypeID} where id = {Id};";
+                string? connStr = _config.GetConnectionString("default");
+                if (connStr is not null)
+                {
+                    await _sqlDB.StoreData(sql, new { }, connStr);
+                }
+            }
+            NavManager.NavigateTo("/");
+        }
+    }
+
+    private async Task DeleteWorkout()
+    {
+        bool confirm = await _jsRuntime.InvokeAsync<bool>("confirm", "Are you sure?");
+        if (confirm)
+        {
+            if (workout is not null)
+            {
+                string sql = $"delete from workouts where id = {Id};";
+                string? connStr = _config.GetConnectionString("default");
+                if (connStr is not null)
+                {
+                    // TODO: change userID to session variable
+                    await _sqlDB.StoreData(sql, new { }, connStr);
+                }
+
+            }
+
+            NavManager.NavigateTo("/");
+        }
+    }
+    
+    private void Cancel()
+    {
+        NavManager.NavigateTo("/");
+    }
+
+}

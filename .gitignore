@@ -1,0 +1,7 @@
+*.json
+Properties/
+wwwroot/
+Training_Partner.csproj.user
+Training_Partner.csproj
+bin/
+obj/
