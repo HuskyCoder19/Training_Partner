@@ -1,0 +1,70 @@
+﻿@page "/lifts/{id:int}"
+@using DBLibrary
+@using Models
+@using Microsoft.Extensions.Configuration
+@rendermode InteractiveServer
+@inject NavigationManager _navManager
+@inject IMysqlAccess _sqlDB
+@inject IConfiguration _config
+@inject IJSRuntime _jsRuntime
+
+<PageTitle>Edit Lifts</PageTitle>
+
+@if (!isLoaded)
+{
+    <p><em>Loading...</em></p>
+} else
+{
+    @if (!idSet)
+    {
+        <p>Error: no workout found to add exercises to.</p>
+    } else
+    {
+        <h3>Add Lifts to workout</h3>
+        <br/>
+
+        <EditForm Model="newLift" FormName="AddLift">
+            <label for="liftType">Exercise:</label>
+            <InputSelect id="liftType" @bind-Value="newLift!.liftTypeID" class="form-select">
+                <option value="0">Select Exercise</option>
+                @foreach (var liftType in liftTypes!)
+                {
+                    <option value="@liftType.Id">@liftType.Name</option>                
+                }
+            </InputSelect>
+        </EditForm>
+    }
+}
+
+@code {
+
+    [Parameter]
+    public int? Id { get; set; } // page parameter
+
+    private bool isLoaded = false;
+    private bool idSet = false;
+
+    // new weight lift & set objects for forms
+    private WeightLift? newLift { get; set; }
+    private LiftSet? newSet { get; set; } 
+
+    List<WeightLift>? weightLifts; // list of exisiting weight lifts logged for this workout
+    List<LiftSet>? liftSets; // list of existing sets for logged lifts
+
+    List<LiftType>? liftTypes; // type of lifts to query for
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is not null)
+        {
+            // query to get lift types
+            string sql = $"select id, name from lift_types;";
+            string? connStr = _config.GetConnectionString("default");
+            liftTypes = await _sqlDB.LoadData<LiftType, dynamic>(sql, new { }, connStr!);
+            idSet = true;
+
+        }
+        isLoaded = true;
+    }
+
+}
