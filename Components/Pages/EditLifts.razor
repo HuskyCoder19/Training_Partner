@@ -23,16 +23,37 @@
         <h3>Add Lifts to workout</h3>
         <br/>
 
-        <EditForm Model="newLift" FormName="AddLift">
-            <label for="liftType">Exercise:</label>
-            <InputSelect id="liftType" @bind-Value="newLift!.liftTypeID" class="form-select">
-                <option value="0">Select Exercise</option>
-                @foreach (var liftType in liftTypes!)
+        <div class="w-50">
+            <EditForm Model="lift" FormName="AddLift" OnValidSubmit="HandleSubmit">
+                <div class="row g-2">
+                    <div class="col-sm-10">
+                        <label for="liftType">Exercise:</label>
+                        <InputSelect id="liftType" @bind-Value="lift!.liftTypeID" class="form-select">
+                            <option value="0">Select Exercise</option>
+                            @foreach (var liftType in liftTypes!)
+                            {
+                                <option value="@liftType.Id">@liftType.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-sm">
+                        <label for="numSets">Sets:</label>
+                        <InputNumber id="numSets" @bind-Value="numSets" class="form-control"></InputNumber>
+                    </div>
+                </div>
+                @for (int i = 1 ; i <= numSets ; i++)
                 {
-                    <option value="@liftType.Id">@liftType.Name</option>                
+                    <div class="row g-2">
+                        <div class="col-sm">
+                            <label for="weight">Rep #@i</label>
+                            <InputNumber id="weight" @bind-Value="weight"></InputNumber>
+                        </div>
+                    </div>
                 }
-            </InputSelect>
-        </EditForm>
+                <br/>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </EditForm>
+        </div>
     }
 }
 
@@ -44,27 +65,41 @@
     private bool isLoaded = false;
     private bool idSet = false;
 
+    private int numSets { get; set; } = 0; // initialize to 0
+
     // new weight lift & set objects for forms
-    private WeightLift? newLift { get; set; }
-    private LiftSet? newSet { get; set; } 
+    private WeightLift? lift { get; set; }
+    private LiftSet? set { get; set; }
 
     List<WeightLift>? weightLifts; // list of exisiting weight lifts logged for this workout
     List<LiftSet>? liftSets; // list of existing sets for logged lifts
 
     List<LiftType>? liftTypes; // type of lifts to query for
 
+    private double weight { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         if (Id is not null)
         {
-            // query to get lift types
-            string sql = $"select id, name from lift_types;";
-            string? connStr = _config.GetConnectionString("default");
-            liftTypes = await _sqlDB.LoadData<LiftType, dynamic>(sql, new { }, connStr!);
-            idSet = true;
+            await GetLiftTypes();
+            lift = new WeightLift(); // construct new lift
 
+            idSet = true;
         }
         isLoaded = true;
+    }
+
+    private async Task GetLiftTypes()
+    {
+        // get the lift types from the database
+        string sql = $"select id, name from lift_types;";
+        string? connStr = _config.GetConnectionString("default");
+        liftTypes = await _sqlDB.LoadData<LiftType, dynamic>(sql, new { }, connStr!);
+    }
+
+    private void HandleSubmit()
+    {
     }
 
 }
